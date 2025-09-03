@@ -1,0 +1,17 @@
+{
+  "name": "tip_jar",
+  "version": "1.0.0",
+  "description": "A complete decentralized application built on Sui that allows users to send tips directly to a tip jar owner. The application features gas-free transactions through Enoki sponsorship and a clean, user-friendly interface.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@mysten/sui.js": "^0.54.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  }
+}
