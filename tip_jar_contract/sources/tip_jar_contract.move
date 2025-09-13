@@ -1,108 +1,136 @@
 /// Module: tip_jar_contract
-/// Simple tip jar that transfers tips directly to the owner
-/// Tips are immediately sent to owner, only statistics are stored in the contract
-module tip_jar_contract::tip_jar_contract;
+/// A simple tip jar that transfers tips directly to the owner.
+/// Only statistics are stored in the contract; tips are sent immediately.
 
-use sui::coin::{Self, Coin};
-use sui::event;
-use sui::sui::SUI;
+module tip_jar_contract::tip_jar_contract {
 
-/// Error codes
-const EInvalidTipAmount: u64 = 1;
+    // -------------------------
+    // Imports
+    // -------------------------
+    use sui::coin::{Coin, value};
+    use sui::event;
+    use sui::tx_context::sender;
+    use sui::sui::SUI;
 
-/// The main TipJar shared object that tracks statistics
-/// Tips are not stored here - they go directly to the owner
-public struct TipJar has key {
-    id: UID,
-    owner: address,
-    total_tips_received: u64,
-    tip_count: u64,
-}
+    // -------------------------
+    // Constants
+    // -------------------------
+    const EInvalidTipAmount: u64 = 1;
+    const ENotOwner: u64 = 2;
+    const MIN_TIP: u64 = 1; // Minimum allowed tip amount
 
-/// Event emitted when a tip is sent
-public struct TipSent has copy, drop {
-    tipper: address,
-    amount: u64,
-    total_tips: u64,
-    tip_count: u64,
-}
+    // -------------------------
+    // TipJar object
+    // -------------------------
+    public struct TipJar has key {
+        id: object::UID,
+        owner: address,
+        total_tips_received: u64,
+        tip_count: u64,
+    }
 
-/// Event emitted when tip jar is created
-public struct TipJarCreated has copy, drop {
-    tip_jar_id: ID,
-    owner: address,
-}
+    // -------------------------
+    // Events
+    // -------------------------
+    public struct TipSent has copy, drop {
+        tipper: address,
+        amount: u64,
+        total_tips: u64,
+        tip_count: u64,
+    }
 
-/// Initialize the tip jar - creates a shared TipJar object
-#[allow(unused_function)]
-fun init(ctx: &mut TxContext) {
-    let owner = ctx.sender();
-    let tip_jar = TipJar {
-        id: object::new(ctx),
-        owner,
-        total_tips_received: 0,
-        tip_count: 0,
-    };
+    public struct TipJarCreated has copy, drop {
+        tip_jar_id: object::ID,
+        owner: address,
+    }
 
-    let tip_jar_id = object::id(&tip_jar);
+    // -------------------------
+    // Create a new TipJar
+    // -------------------------
+    public fun create_tip_jar(ctx: &mut TxContext) {
+        let owner = sender(ctx);
+        let tip_jar = TipJar {
+            id: object::new(ctx),
+            owner,
+            total_tips_received: 0,
+            tip_count: 0,
+        };
 
-    // Emit creation event
-    event::emit(TipJarCreated {
-        tip_jar_id,
-        owner,
-    });
+        let tip_jar_id = object::id(&tip_jar);
 
-    // Share the tip jar so anyone can send tips
-    transfer::share_object(tip_jar);
-}
+        // Emit creation event
+        event::emit(TipJarCreated {
+            tip_jar_id,
+            owner,
+        });
 
-/// Send a tip to the tip jar owner
-/// The tip is immediately transferred to the owner
-/// Only statistics are updated in the shared object
-public fun send_tip(tip_jar: &mut TipJar, payment: Coin<SUI>, ctx: &mut TxContext) {
-    let tip_amount = coin::value(&payment);
+        // Share the tip jar so anyone can send tips
+        transfer::share_object(tip_jar);
+    }
 
-    // Ensure tip amount is greater than zero
-    assert!(tip_amount > 0, EInvalidTipAmount);
+    // -------------------------
+    // Tip functions
+    // -------------------------
+    public fun send_tip(tip_jar: &mut TipJar, payment: Coin<SUI>, ctx: &mut TxContext) {
+        let tip_amount = value(&payment);
 
-    // Transfer payment directly to the tip jar owner
-    transfer::public_transfer(payment, tip_jar.owner);
+        // Check for minimum tip
+        assert!(tip_amount >= MIN_TIP, EInvalidTipAmount);
 
-    // Update statistics in the tip jar
-    tip_jar.total_tips_received = tip_jar.total_tips_received + tip_amount;
-    tip_jar.tip_count = tip_jar.tip_count + 1;
+        // Transfer payment directly to the tip jar owner
+        transfer::public_transfer(payment, tip_jar.owner);
 
-    // Emit event for the frontend to track
-    event::emit(TipSent {
-        tipper: ctx.sender(),
-        amount: tip_amount,
-        total_tips: tip_jar.total_tips_received,
-        tip_count: tip_jar.tip_count,
-    });
-}
+        // Update statistics
+        tip_jar.total_tips_received = tip_jar.total_tips_received + tip_amount;
+        tip_jar.tip_count = tip_jar.tip_count + 1;
 
-/// Get the total amount of tips received by the owner
-public fun get_total_tips(tip_jar: &TipJar): u64 {
-    tip_jar.total_tips_received
-}
+        // Emit event for tracking
+        event::emit(TipSent {
+            tipper: sender(ctx),
+            amount: tip_amount,
+            total_tips: tip_jar.total_tips_received,
+            tip_count: tip_jar.tip_count,
+        });
+    }
 
-/// Get the total number of tips sent
-public fun get_tip_count(tip_jar: &TipJar): u64 {
-    tip_jar.tip_count
-}
+    // -------------------------
+    // Owner-only functions
+    // -------------------------
+    public fun reset_stats(tip_jar: &mut TipJar, caller: address) {
+        assert!(tip_jar.owner == caller, ENotOwner);
+        tip_jar.total_tips_received = 0;
+        tip_jar.tip_count = 0;
+    }
 
-/// Get the owner address of the tip jar
-public fun get_owner(tip_jar: &TipJar): address {
-    tip_jar.owner
-}
+    public fun change_owner(tip_jar: &mut TipJar, new_owner: address, caller: address) {
+        assert!(tip_jar.owner == caller, ENotOwner);
+        tip_jar.owner = new_owner;
+    }
 
-/// Check if an address is the owner of the tip jar
-public fun is_owner(tip_jar: &TipJar, addr: address): bool {
-    tip_jar.owner == addr
-}
+    // -------------------------
+    // View functions
+    // -------------------------
+    public fun get_total_tips(tip_jar: &TipJar): u64 {
+        tip_jar.total_tips_received
+    }
 
-#[test_only]
-/// Test-only function to initialize tip jar for tests
-public fun init_for_testing(ctx: &mut TxContext) {
-    init(ctx);
+    public fun get_tip_count(tip_jar: &TipJar): u64 {
+        tip_jar.tip_count
+    }
+
+    public fun get_owner(tip_jar: &TipJar): address {
+        tip_jar.owner
+    }
+
+    public fun is_owner(tip_jar: &TipJar, addr: address): bool {
+        tip_jar.owner == addr
+    }
+
+    // -------------------------
+    // Test-only functions
+    // -------------------------
+    #[test_only]
+    public fun create_for_testing(ctx: &mut TxContext) {
+        create_tip_jar(ctx);
+    }
 }

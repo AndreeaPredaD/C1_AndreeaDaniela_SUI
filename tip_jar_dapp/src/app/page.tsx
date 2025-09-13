@@ -22,7 +22,7 @@ export default function Home() {
             Send tips on Sui with gas-free transactions powered by Enoki
           </p>
         </div>
-        
+
         <div className="space-y-6">
           <WalletConnection refreshKey={refreshKey} />
           <TipJar refreshKey={refreshKey} onTipSuccess={handleTipSuccess} />
@@ -31,17 +31,17 @@ export default function Home() {
         <footer className="mt-12 text-center text-sm text-gray-500">
           <p>Built with ❤️ on Sui • Powered by Enoki for gas-free transactions</p>
           <div className="mt-2 space-x-4">
-            <a 
-              href="https://docs.sui.io" 
-              target="_blank" 
+            <a
+              href="https://docs.sui.io"
+              target="_blank"
               rel="noopener noreferrer"
               className="hover:text-blue-500 transition-colors"
             >
               Sui Docs
             </a>
-            <a 
-              href="https://docs.enoki.mystenlabs.com" 
-              target="_blank" 
+            <a
+              href="https://docs.enoki.mystenlabs.com"
+              target="_blank"
               rel="noopener noreferrer"
               className="hover:text-blue-500 transition-colors"
             >
